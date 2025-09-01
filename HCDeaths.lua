@@ -1,1148 +1,839 @@
-local turtle = (TargetHPText or TargetHPPercText)
-if not turtle then
-		HCDeath:print("This addon will only function correctly for Turtle WoW.")
-    return
-end
-
 HCDeaths_Settings = {
-	message = true,
-	log = true,
-	toast = true,
-	color = false,
-	levelsound = true,
-	toastscale = 1,
-	logscale = 1,
-	toasttime = 10,
+    message = true,
+    toast = true,
+    color = false,
+    levelsound = true,
+    deathsound = true,
+    toastscale = 1,
+    toasttime = 10,
+}
+
+local MAX_LEVEL = 60
+
+local media = "Interface\\Addons\\HCDeaths\\media\\"
+local twidth, theight = 332.8, 166.4
+
+-- Sound files
+local HARDCORE_START_SOUND = "Sound\\Doodad\\G_FireworkLauncher02Custom0.wav"
+local HARDCORE_COMPLETE_SOUND = "Sound\\Doodad\\G_FireworkLauncher02Custom0.wav"
+local LEVEL_UP_SOUND = "Sound\\Doodad\\G_FireworkLauncher02Custom0.wav"
+local DEATH_SOUND = "Sound\\Interface\\RaidWarning.wav"
+local DEATH_PLAYER_SOUND = DEATH_SOUND
+local DEATH_PVP_SOUND = DEATH_SOUND
+
+local NPC_STRING = "(.-) fell to the blows of ${death.source} at (.-) and now brandishes a tarnished soul after reaching level (%d+)."
+local PVP_STRING = "(.-) was slaughtered in PvP combat by (.-) at (.-) and now brandishes a tarnished soul after reaching level (%d+)."
+local NATURAL_CAUSES_STRING = "(.-) died by (.-) at (.-) and now brandishes a tarnished soul after reaching level (%d+)."
+local UNKNOWN_CAUSE_STRING = "(.-) collapsed into the timeways at (.-) and now brandishes a tarnished soul after reaching level (%d+)."
+
+local MILESTONE_STRING = "|cffFFFF00(.-) has reached level (%d+) with a Soul of Iron.|r"
+local MAX_MILESTONE_STRING = "|cffFFFF00(.-) has attained the mighty level of (%d+) with a Soul of Iron. Witness their might!|r"
+
+local SOUL_OF_IRON_ICON = "Interface\\Icons\\Spell_Shadow_Skull"
+local SOUL_OF_IRON_20 = 5016
+local SOUL_OF_IRON_40 = 5017
+local SOUL_OF_IRON_60 = 5018
+
+local lastWords = {
+    "I thought I was lagging...",
+    "Didn't the healer have mana?",
+    "I can solo this elite, watch me!",
+    "What do you mean 'Don't release'?",
+    "Leeeeeroy Jenkins!",
+    "I'll be right back, bio break.",
+    "Who pulled?",
+    "I don't need a tank! I'm a Hunter.",
+    "Oops, wrong button.",
+    "Don't worry, I've done this before.",
+    "Wait, that wasn't a health potion?",
+    "I thought I was immune to fall damage.",
+    "Curse you, autorun!",
+    "This isn't even my final form!",
+    "I bet I can make that jump.",
+    "Hold my mana potion.",
+    "Watch this trick shot!",
+    "I'm sure it's just a flesh wound.",
+    "Didn't we clear this trash already?",
+    "I thought Blessing of Protection was on...",
+    "Surely this mob is almost dead.",
+    "I can tank this, I have a shield equip-- oh.",
+    "Don't worry, I've calculated the odds.",
+    "I'm sure my pet can handle it.",
+    "What do you mean 'Don't stand in the fire'?",
+    "I thought Bubble Hearth still worked.",
+    "Apparently, that wasn't a 'summoning' portal.",
+    "I swear I pressed the heal button!",
+    "Who knew Murlocs traveled in packs?",
+    "I'm sure this debuff will wear off soon.",
+    "Trust me, I'm an engineer.",
+    "I didn't need that soul shard anyway.",
+    "I thought Vanish was off cooldown.",
+    "Surely they nerfed this boss by now.",
+    "What do you mean 'Don't release the sheep'?",
+    "I can survive this fall with Slow Fall... oh wait.",
+    "I'm sure that mob is passive.",
+    "Don't worry, I've got Divine Intervention... oh right.",
+    "I thought I specced into that talent.",
+    "Apparently, 'Undead' doesn't mean immune to death.",
+    "I'm sure this random mushroom is edible.",
+    "What do you mean 'Line of Sight'?",
+    "I thought I wasn't on my main?",
+    "Didn't we have a soul stone up?",
+    "I'm sure that treasure chest isn't trapped.",
+    "Watch me kite this world boss!",
+    "I don't need to read the dungeon journal.",
+    "What's the worst that could happen?",
+    "I'm sure that's just cosmetic damage.",
+    "Trust me, I've seen this on YouTube.",
+    "A little help?",
+    "I can't believe you've done this.",
+    "EPOCH HYPE! EPOCH HYPE!",
+    "I know a shortcut through here.",
+    "Aggro? What aggro?",
+    "It's just one mob.",
+    "I think I can squeeze through.",
+    "I forgot to repair... it'll be fine.",
+    "Why are you running?",
+    "Just one more pull before bed.",
+    "Don't worry, this build is unkillable.",
+    "I think this thing will leash.",
+    "We don't need CC, just AoE everything.",
+    "I'm just going to poke it.",
+    "Wait, I haven't set my binds yet!",
+    "Let me just test this damage.",
+    "Who needs gear when you've got skill?",
+    "I watched a guide... like a month ago.",
+    "I think I clicked something...",
+    "I was lagging. For real this time.",
+    "This is definitely the safe zone.",
+    "I'm just checking what's around the corner.",
+    "I can survive the enrage phase.",
+    "The healer can just spam me. Pretty sure they aren't AFK now.",
+    "I'll stand over here to be safe.",
+    "What's this red circle do?",
+    "I'll just loot real quick.",
+    "YOLO pull!",
+    "I swear this worked on my alt.",
+    "You guys go ahead, I’ll catch up.",
+    "I just need one more hit.",
+    "I was testing gravity.",
+    "If I die, it's your fault btw.",
+    "I'm helping.",
+    "That ability has a long cast time, right?",
+    "Oh, we needed to kill the adds?",
+    "Let's just pull the whole room.",
+    "It can't *possibly* one-shot me.",
+    "I'll just stealth through.",
+    "The tank pulled, right?",
+    "What's the worst that could happen if I press this button?"
+}
+
+local pvpLastWords = {
+    "I don't need a tank! I'm a Hunter.",
+    "I'm sure my pet can handle it.",
+    "Trust me, I've seen this on YouTube.",
+    "I thought Vanish was off cooldown.",
+    "I swear this worked on my alt.",
+    "Just one more pull before bed.",
+    "Don't worry, this build is unkillable.",
+    "The healer can just spam me. Pretty sure they aren't AFK now.",
+    "I just need one more hit.",
+    "If I die, it's your fault btw.",
+    "I'm helping.",
+    "I'm sure it's just a flesh wound.",
+    "I thought I wasn't on my main?",
+    "Who needs gear when you've got skill?",
+    "YOLO pull!",
+    "This isn't even my final form!",
+    "Surely this mob is almost dead.",
+    "What do you mean 'Don't stand in the fire'?",
+    "Leeeeeroy Jenkins!",
+    "I watched a guide... like a month ago.",
+    "I can solo this elite, watch me!",
+    "They nerfed arena gear? Whatever, I'll still win.",
+    "I'll just 1v1 the whole team.",
+    "I don't need CC—I have personality.",
+    "I'm streaming this—what could go wrong?",
+    "Lag? What lag?",
+    "I'm god‑moded, obviously.",
+    "My mouse is broken—not me.",
+    "One shot? Challenge accepted.",
+    "No cooldowns, just fearlessness.",
+    "This class is OP—watch me prove it.",
+    "I'm better than this build says I am.",
+    "Get that kill feed ready.",
+    "They can't kill us all!",
+    "This is a 1‑shot combo, trust me.",
+    "I'm behind cover… I think.",
+    "That person is trash, they can't beat me.",
+}
+
+local npcLastWords = {
+    "Didn't the healer have mana?",
+    "Don't worry, I've done this before.",
+    "We don't need CC, just AoE everything.",
+    "Oops, wrong button.",
+    "Wait, that wasn't a health potion?",
+    "I'm just going to poke it.",
+    "Let me just test this damage.",
+    "I can tank this, I have a shield equip-- oh.",
+    "I swear I pressed the heal button!",
+    "What do you mean 'Don't release the sheep'?",
+    "Oh, we needed to kill the adds?",
+    "Let's just pull the whole room.",
+    "Watch me kite this world boss!",
+    "I thought the boss was still leashed!",
+    "I'm just checking what's around the corner.",
+    "Don't worry, I've calculated the odds.",
+    "I didn't need that soul shard anyway.",
+    "That ability has a long cast time, right?",
+    "The tank pulled, right?",
+    "Didn't we clear this trash already?",
+    "What's the worst that could happen?",
+    "I'll just stealth through.",
+    "What's this red circle do?",
+    "I know a shortcut through here.",
+    "Aggro? What aggro?",
+    "I'm sure that mob is passive.",
+    "You guys go ahead, I’ll catch up.",
+    "Portal’s friendly, right?",
+    "I de‑aggroed—honest!",
+    "It’s fine, they won’t path here.",
+    "I clicked the auto‑loot… maybe.",
+    "I thought traps only delay you.",
+    "My weapon is 'just for show'.",
+    "I loaded the right quest… I think.",
+    "This elixir works on everything, right?",
+    "Cooldowns are suggestions.",
+    "My pet is tanking… somewhere.",
+    "I'll interrupt... eventually.",
+    "The raid finder said I'm fine.",
+    "This is warp‑safe, definitely.",
+    "Time stops on boss cast, sure.",
+    "I read the journal. Kind of.",
+    "It's a weak‑only area, duh.",
+}
+
+local naturalLastWords = {
+    "I thought I was lagging...",
+    "Wait, I haven't set my binds yet!",
+    "This is definitely the safe zone.",
+    "I thought I was immune to fall damage.",
+    "Curse you, autorun!",
+    "I bet I can make that jump.",
+    "Hold my mana potion.",
+    "I'm sure that's just cosmetic damage.",
+    "Apparently, that wasn't a 'summoning' portal.",
+    "I can survive this fall with Slow Fall... oh wait.",
+    "Apparently, 'Undead' doesn't mean immune to death.",
+    "I'm sure this random mushroom is edible.",
+    "What do you mean 'Line of Sight'?",
+    "I'm sure that treasure chest isn't trapped.",
+    "I forgot to repair... it'll be fine.",
+    "Why are you running?",
+    "I think I can squeeze through.",
+    "I was testing gravity.",
+    "If I die, it's your fault.",
+    "Oops, that was the self-destruct macro.",
+    "Watch this trick shot!",
+    "I thought Blessing of Protection was on...",
+    "I thought Bubble Hearth still worked.",
+    "I thought I specced into that talent.",
+    "Didn't we have a soul stone up?",
+    "EPOCH HYPE! EPOCH HYPE!",
+    "What's the worst that could happen if I press this button?",
+    "Wurm? Lucky break, right?",
+    "I’ll just AFK here for a sec.",
+    "Teleport’s safe zone... ish.",
+    "What's this spike do?",
+    "Fast travel is always safe.",
+    "I wasn't standing in fire? I guess.",
+    "Fall damage is bugged… maybe.",
+    "There’s no floor here, right?",
+    "I’ll just mount mid‑jump.",
+    "Lag will catch me—momentarily.",
+    "I’m actually underwater—maybe.",
+    "That bridge looked solid.",
+    "This pit is shallow. I hope.",
+    "I hear water’s nice this time of day.",
+    "Gravity’s just a theory.",
+    "I rebooted the server—better now.",
+    "This corner has good light. I’ll live.",
+}
+
+local celebrationQuotes = {
+    "For the Alliance! ...or was it the Horde?",
+    "I am now prepared!",
+    "Lok'tar ogar! ...I think I said that right.",
+    "I've got the power of God and anime on my side!",
+    "I can now officially call Dalaran my home.",
+    "Time is money, friend, and I've got time to spare!",
+    "I am one with the RNG, and the RNG is with me.",
+    "I didn't choose the mug life, the mug life chose me.",
+    "I've collected more mounts than Pepe has forms!",
+    "I'm not addicted, I can quit anytime... right after this raid.",
+    "I've seen things you people wouldn't believe. Attacks ships on fire off the shoulder of Orgrimmar...",
+    "I don't always drink in Azeroth, but when I do, I prefer Kungaloosh.",
+    "I've finally collected enough transmog to open my own fashion house in Silvermoon.",
+    "I'm not a regular adventurer, I'm a cool adventurer.",
+    "I've died and released so many times, I'm on a first-name basis with the Spirit Healer.",
+    "I'm not saying I'm the Chosen One, but my Hearthstone's cooldown is always up.",
+    "I don't need a flying mount, I can just leap tall buildings in a single bound.",
+    "I've completed so many fetch quests, I'm thinking of changing my class to 'Retriever'.",
+    "I'm so iconic, NPCs ask for my autograph.",
+    "I don't need a guild, I AM the guild.",
+    "I'm not saying I'm better than Chromie at time management, but...",
+    "I've saved Azeroth so many times, I should start charging rent.",
+    "I'm on a boat! ...I mean, a flying ship in Icecrown!",
+    "I am the one who knocks... on Arthas's door!",
+    "I've collected so many pets, I'm considering opening a zoo in Sholazar Basin.",
+    "I don't need transmogrification, I was born this fabulous.",
+    "I'm not lost, I'm on a perpetual world tour of Azeroth.",
+    "I've died so many times, I have a loyalty card with the Spirit Healer.",
+    "I'm so legendary, even my failures are epic.",
+    "I don't need a flying mount, I've mastered the art of gracefully falling with style.",
+    "I'm not saying I'm the best, but have you seen anyone else save Azeroth this many times?",
+    "I've completed so many dailies, I'm thinking of changing my name to 'Groundhog Day'.",
+    "I don't need a guild bank, I AM the bank.",
+    "I'm so powerful, even Chuck Norris asks me for advice.",
+    "I've fished so much, the Naga are considering me for underwater ambassador.",
+    "I don't always win, but when I do, it's because I released my inner murloc.",
+    "I'm so rich, I use Azeroth's rarest materials as confetti.",
+    "I've tanked so many bosses, I'm considering a career in architecture.",
+    "I don't need a Mage portal, I can bend space and time with my sheer awesomeness.",
+    "I'm so famous, even Khadgar asks for my autograph.",
+    "I've cooked so many feasts, I'm considering opening a restaurant in Dalaran.",
+    "I don't need armor, my plot armor is impenetrable.",
+    "I'm so skilled, even the training dummies are learning from me.",
+    "I don't need a flying mount, I've trained my ground mount to run on air.",
+    "I'm so legendary, even my alts have their own fan clubs.",
+    "I've defeated so many Old Gods, they're considering me for adoption.",
+    "I don't need quest markers, I have an innate sense of where to collect 10 boar tusks.",
+    "Don't let your dreams be dreams!",
+    "Ding! Level 60? More like 6.0 out of 10!",
+    "I'm not saying I'm Batman, but have you ever seen me and Batman in Azeroth at the same time?",
+    "This isn't even my final form... oh wait, it is!",
+    "I don't always reach max level, but when I do, I prefer to do it in style.",
+    "They said I could be anything, so I became a Hardcore legend.",
+    "I'm not procrastinating, I'm just waiting for my cooldowns.",
+    "I'm not saying I'm a god, but I did stay at a Dalaran inn last night.",
+    "I don't need sleep, I have Bloodlust and energy drinks.",
+    "I'm not toxic, I'm just sharing my love for the game... aggressively.",
+    "I can quit whenever I want... just one more quest.",
+    "I don't need a life, I have multiple characters.",
+    "I don't need to go outside, I've been to every zone in Azeroth.",
+    "I don't always win, but when I do, it's because the other team didn't.",
+    "They said 'Git gud', so I got gudder.",
+    "I'm not screaming, I'm using my outdoor raid voice.",
+    "I don't need a social life, I have my guild.",
+    "I don't need therapy, I have loading screen tips.",
+    "I can one-shot critters.",
+    "Ok, now I can start playing the game.",
+    "I'm not saying I'm rich, but I do have a Mammoth mount.",
+    "I don't need a workout, I've been carrying my team.",
+    "They said 'Break a leg', so I did... and then I used a healing potion.",
+    "My transmog game is on point.",
+    "I don't need a GPS, I have a mini-map.",
+    "They said 'The floor is lava', so I learned to fly.",
+    "I don't need a gym membership, I've been lifting Thunderfury, Blessed Blade of the Windseeker.",
+    "They said 'You can't handle the truth', so I specced into Resilience.",
+    "I don't need a calendar, I have daily quests.",
+    "They said 'Get a life', so I got nine... Wait, wrong game.",
+    "I don't need a watch, I have debuff timers.",
+    "They said 'Touch some grass', so I farmed herbs for 10 hours.",
+    "I don't need a mirror, I have the character selection screen."
 }
 
 local instances = {
-	-- Turtle
-	"Hateforge Quarry",
-	"Black Morass",
-	"Karazhan Crypt",
-	"Stormwind Vault",
-	"Crescent Grove",
-	-- Dungeons
-	"Blackfathom Deeps",
-	"Blackrock Depths",
-	"Blackrock Spire",
-	"Dire Maul",
-	"Gnomeregan",
-	"Maraudon",
-	"Ragefire Chasm",
-	"Razorfen Downs",
-	"Razorfen Kraul",
-	"Scarlet Monastery",
-	"Scholomance",
-	"Shadowfang Keep",
-	"Stratholme",
-	"The Deadmines",
-	"The Stockade",
-	"Uldaman",
-	"Wailing Cavems",
-	"Zul'Farrak",
-	-- Raids
-	"Blackwing Lair",
-	"Molten Core",
-	"Naxxramas",
-	"Onyxia's Lair",
-	"Ruins of Ahn'Qiraj",
-	"Temple of Ahn'Qiraj",
-	"Zul'Gurub",
+    -- Classic Dungeons
+    "Ragefire Chasm",
+    "Wailing Caverns",
+    "Deadmines",
+    "Shadowfang Keep",
+    "Blackfathom Deeps",
+    "The Stockade",
+    "Gnomeregan",
+    "Razorfen Kraul",
+    "Scarlet Monastery",
+    "Razorfen Downs",
+    "Uldaman",
+    "Zul'Farrak",
+    "Maraudon",
+    "Temple of Atal'Hakkar",
+    "Blackrock Depths",
+    "Lower Blackrock Spire",
+    "Upper Blackrock Spire",
+    "Dire Maul",
+    "Stratholme",
+    "Scholomance",
+    -- Classic Raids
+    "Molten Core",
+    "Onyxia's Lair",
+    "Blackwing Lair",
+    "Zul'Gurub",
+    "Ruins of Ahn'Qiraj",
+    "Temple of Ahn'Qiraj",
+    "Naxxramas",
+    -- The Burning Crusade Dungeons
+    "Hellfire Ramparts",
+    "Blood Furnace",
+    "Slave Pens",
+    "Underbog",
+    "Mana-Tombs",
+    "Auchenai Crypts",
+    "Old Hillsbrad Foothills",
+    "Sethekk Halls",
+    "Steamvault",
+    "Shadow Labyrinth",
+    "Black Morass",
+    "Arcatraz",
+    "Botanica",
+    "Mechanar",
+    "Shattered Halls",
+    "Magisters' Terrace",
+    -- The Burning Crusade Raids
+    "Karazhan",
+    "Gruul's Lair",
+    "Magtheridon's Lair",
+    "Serpentshrine Cavern",
+    "The Eye",
+    "Mount Hyjal",
+    "Black Temple",
+    "Sunwell Plateau",
+    -- Wrath of the Lich King Dungeons
+    "Utgarde Keep",
+    "The Nexus",
+    "Azjol-Nerub",
+    "Ahn'kahet: The Old Kingdom",
+    "Drak'Tharon Keep",
+    "The Violet Hold",
+    "Gundrak",
+    "Halls of Stone",
+    "Halls of Lightning",
+    "The Oculus",
+    "Culling of Stratholme",
+    "Utgarde Pinnacle",
+    "Trial of the Champion",
+    "Forge of Souls",
+    "Pit of Saron",
+    "Halls of Reflection",
+    -- Wrath of the Lich King Raids
+    "Naxxramas",
+    "Obsidian Sanctum",
+    "Vault of Archavon",
+    "Eye of Eternity",
+    "Ulduar",
+    "Trial of the Crusader",
+    "Onyxia's Lair",
+    "Icecrown Citadel",
+    "Ruby Sanctum",
+    -- Project Epoch
+    "Glittermurk Mines"
 }
 
-local HCDeath = CreateFrame("Frame", nil, UIParent)
-HCDeaths = {}
-HCDeaths_LastWords = {}
-
-local media = "Interface\\Addons\\HCDeaths\\media\\"
-local deaths = {}
-local toastMove -- state of toast moving
-local is_pfUI
-local twidth, theight = 332.8, 166.4
-
-do
-	-- toast
-	local HCDeathsToast = CreateFrame("Button", "HCDeathsToast", HCDeath)
-	HCDeathsToast:SetWidth(twidth)
-	HCDeathsToast:SetHeight(theight)
-	HCDeathsToast:Hide()
-
-	-- texture
-	HCDeath.texture = HCDeathsToast:CreateTexture(nil,"LOW")
-	HCDeath.texture:SetAllPoints(HCDeathsToast)
-
-	HCDeath.type = HCDeathsToast:CreateTexture(nil,"BACKGROUND")
-	HCDeath.type:SetPoint("CENTER", HCDeath.texture, "CENTER", -43, -24)
-
-	HCDeath.class = HCDeathsToast:CreateTexture(nil,"BACKGROUND")
-	HCDeath.class:SetPoint("CENTER", HCDeath.texture, "CENTER", 0, 10)
-
-	-- text
-	local font, size, outline = "Fonts\\FRIZQT__.TTF", 16, "OUTLINE"
-	
-	HCDeath.level = HCDeathsToast:CreateFontString(nil, "LOW", "GameFontNormal")
-	HCDeath.level:SetPoint("TOP", HCDeath.texture, "CENTER", 42, -15)
-	HCDeath.level:SetWidth(HCDeath.texture:GetWidth())
-	HCDeath.level:SetFont(font, size, outline)
-
-	HCDeath.name = HCDeathsToast:CreateFontString(nil, "LOW", "GameFontNormal")	
-	HCDeath.name:SetWidth(HCDeath.texture:GetWidth())
-	HCDeath.name:SetFont(font, size, outline)
-
-	outline = "THINOUTLINE"
-
-	HCDeath.zone = HCDeathsToast:CreateFontString(nil, "LOW", "GameFontNormal")	
-	HCDeath.zone:SetWidth(HCDeath.texture:GetWidth()*1.5)
-	HCDeath.zone:SetFont(font, size, outline)
-
-	HCDeath.death = HCDeathsToast:CreateFontString(nil, "LOW", "GameFontNormal")	
-	HCDeath.death:SetWidth(HCDeath.texture:GetWidth()*1.5)
-	HCDeath.death:SetFont(font, size, outline)
-
-	HCDeath.lastwords = HCDeathsToast:CreateFontString(nil, "LOW", "GameFontNormal")
-	HCDeath.lastwords:SetWidth(HCDeath.texture:GetWidth())
-	HCDeath.lastwords:SetFont(font, size, outline)
-	HCDeath.lastwords:SetTextColor(.5,.5,.5)
-
-	if is_pfUI then
-		HCDeath.texture:SetTexture(media.."Ring\\".."Ring_pfUI")
-	else
-		HCDeath.texture:SetTexture(media.."Ring\\".."Ring")
-	end
-
-	HCDeath.name:SetPoint("TOP", HCDeath.texture, "CENTER", 0, -44)
-	HCDeath.zone:SetPoint("TOP", HCDeath.name, "BOTTOM", 0, -14)
-	HCDeath.death:SetPoint("TOP", HCDeath.zone, "BOTTOM", 0, -5)		
-	HCDeath.lastwords:SetPoint("TOP", HCDeath.death, "BOTTOM", 0, -10)
-	
-
-	HCDeathsToast:SetMovable(true)
-	HCDeathsToast:SetClampedToScreen(true)
-	HCDeathsToast:SetUserPlaced(true)
-	HCDeathsToast:EnableMouse(true)
-	HCDeathsToast:RegisterForClicks("RightButtonDown")
-	HCDeathsToast:RegisterForDrag("LeftButton")
-  
-	function HCDeathsToast:position()
-		HCDeathsToast:ClearAllPoints()
-		HCDeathsToast:SetPoint("CENTER", UIErrorsFrame, "CENTER", 0, -20)
-	end
-  
-	HCDeathsToast:position()
-  
-	HCDeathsToast:SetScript("OnDragStart", function()
-	  if (IsShiftKeyDown() and IsControlKeyDown()) then
-		HCDeathsToast:StartMoving()
-	  end
-	end)
-  
-	HCDeathsToast:SetScript("OnDragStop", function()
-		HCDeathsToast:StopMovingOrSizing()
-	end)
-  
-	HCDeathsToast:SetScript("OnClick", function()
-	  if (IsShiftKeyDown() and IsControlKeyDown()) then
-		HCDeathsToast:SetUserPlaced(false)
-		HCDeathsToast:position()
-	  end
-	end)
+local function GetRandomLastWords(deathType)
+    local theseLastWords
+    if deathType == "NPC" then
+        theseLastWords = npcLastWords
+    elseif deathType == "PVP" then
+        theseLastWords = pvpLastWords
+    elseif deathType == "PLAYER" then
+        theseLastWords = naturalLastWords
+    else
+        theseLastWords = npcLastWords
+    end
+    return theseLastWords[math.random(#theseLastWords)]
 end
 
+local function GetRandomCelebrationQuote()
+    return celebrationQuotes[math.random(#celebrationQuotes)]
+end
+
+local HCDeath = CreateFrame("Frame", nil, UIParent)
+local media = "Interface\\Addons\\HCDeaths\\media\\"
+local twidth, theight = 332.8, 166.4
+
+if not RAID_CLASS_COLORS["DEATHKNIGHT"] then
+    RAID_CLASS_COLORS["DEATHKNIGHT"] = { r = 0.77, g = 0.12, b = 0.23 }
+end
+
+do
+    -- Create the toast frame
+    local HCDeathsToast = CreateFrame("Button", "HCDeathsToast", HCDeath)
+    HCDeathsToast:SetWidth(twidth)
+    HCDeathsToast:SetHeight(theight)
+    HCDeathsToast:Hide()
+
+    -- Setup textures
+    HCDeath.texture = HCDeathsToast:CreateTexture(nil,"LOW")
+    HCDeath.texture:SetAllPoints(HCDeathsToast)
+    HCDeath.texture:SetTexture(media.."Ring\\Ring")
+
+    HCDeath.type = HCDeathsToast:CreateTexture(nil,"BACKGROUND")
+    HCDeath.type:SetPoint("CENTER", HCDeath.texture, "CENTER", -43, -24)
+
+    HCDeath.class = HCDeathsToast:CreateTexture(nil,"BACKGROUND")
+    HCDeath.class:SetPoint("CENTER", HCDeath.texture, "CENTER", 0, 10)
+
+    -- Setup fonts
+    local font, size, outline = "Fonts\\FRIZQT__.TTF", 16, "OUTLINE"
+    
+    HCDeath.level = HCDeathsToast:CreateFontString(nil, "LOW", "GameFontNormal")
+    HCDeath.level:SetPoint("TOP", HCDeath.texture, "CENTER", 42, -15)
+    HCDeath.level:SetWidth(HCDeath.texture:GetWidth())
+    HCDeath.level:SetFont(font, size, outline)
+
+    HCDeath.name = HCDeathsToast:CreateFontString(nil, "LOW", "GameFontNormal")    
+    HCDeath.name:SetWidth(HCDeath.texture:GetWidth())
+    HCDeath.name:SetFont(font, size, outline)
+
+    outline = "THINOUTLINE"
+
+    HCDeath.zone = HCDeathsToast:CreateFontString(nil, "LOW", "GameFontNormal")    
+    HCDeath.zone:SetWidth(HCDeath.texture:GetWidth()*1.5)
+    HCDeath.zone:SetFont(font, size, outline)
+
+    HCDeath.death = HCDeathsToast:CreateFontString(nil, "LOW", "GameFontNormal")    
+    HCDeath.death:SetWidth(HCDeath.texture:GetWidth()*1.5)
+    HCDeath.death:SetFont(font, size, outline)
+
+    HCDeath.lastwords = HCDeathsToast:CreateFontString(nil, "LOW", "GameFontNormal")
+    HCDeath.lastwords:SetWidth(HCDeath.texture:GetWidth())
+    HCDeath.lastwords:SetFont(font, size, outline)
+    HCDeath.lastwords:SetTextColor(.5,.5,.5)
+
+    -- Position text elements
+    HCDeath.name:SetPoint("TOP", HCDeath.texture, "CENTER", 0, -44)
+    HCDeath.zone:SetPoint("TOP", HCDeath.name, "BOTTOM", 0, -14)
+    HCDeath.death:SetPoint("TOP", HCDeath.zone, "BOTTOM", 0, -5)        
+    HCDeath.lastwords:SetPoint("TOP", HCDeath.death, "BOTTOM", 0, -10)
+
+    -- Make frame movable
+    HCDeathsToast:SetMovable(true)
+    HCDeathsToast:SetClampedToScreen(true)
+    HCDeathsToast:SetUserPlaced(true)
+    HCDeathsToast:EnableMouse(true)
+    HCDeathsToast:RegisterForClicks("RightButtonDown")
+    HCDeathsToast:RegisterForDrag("LeftButton")
+  
+    function HCDeathsToast:position()
+        HCDeathsToast:ClearAllPoints()
+        HCDeathsToast:SetPoint("CENTER", UIErrorsFrame, "CENTER", 0, -140)
+    end
+  
+    HCDeathsToast:position()
+  
+    -- Frame scripts
+    HCDeathsToast:SetScript("OnDragStart", function()
+        if IsShiftKeyDown() and IsControlKeyDown() then
+            HCDeathsToast:StartMoving()
+        end
+    end)
+  
+    HCDeathsToast:SetScript("OnDragStop", function()
+        HCDeathsToast:StopMovingOrSizing()
+    end)
+  
+    HCDeathsToast:SetScript("OnClick", function()
+        if IsShiftKeyDown() and IsControlKeyDown() then
+            HCDeathsToast:SetUserPlaced(false)
+            HCDeathsToast:position()
+        end
+    end)
+end
+
+-- Toast timer
 local toastTimer = CreateFrame("Frame", nil, HCDeath)
 toastTimer:Hide()
 toastTimer:SetScript("OnUpdate", function()
-	if GetTime() >= this.time then
-		this.time = nil
-		HCDeath:hideToast()
-		this:Hide()
-		HCDeath:Toast()
-	end
+    if GetTime() >= this.time then
+        this.time = nil
+        HCDeath:hideToast()
+        this:Hide()
+    end
 end)
 
-function HCDeath:Check_pfUI()
-    is_pfUI = IsAddOnLoaded("pfUI")
-end
-
+-- Helper Functions
 function HCDeath:classSize()
-	local s = 85
-	HCDeath.class:SetWidth(s)
-	HCDeath.class:SetHeight(s)
+    local s = 85
+    HCDeath.class:SetWidth(s)
+    HCDeath.class:SetHeight(s)
 end
 
-function HCDeath:typeSize()
-	local s = 25
-	HCDeath.type:SetWidth(s)
-	HCDeath.type:SetHeight(s)
-end
-
-function HCDeath:showToast()
-	HCDeath:classSize()
-	HCDeath:typeSize()
-	HCDeathsToast:Show()
-
-	toastTimer.time = GetTime() + HCDeaths_Settings.toasttime
-	toastTimer:Show()
-end
-
-function HCDeath:hideToast()
-	HCDeathsToast:Hide()
-
-	HCDeath.name:SetText("")
-	HCDeath.level:SetText("")
-	HCDeath.zone:SetText("")
-	HCDeath.death:SetText("")
-	HCDeath.lastwords:SetText("")
-	-- HCDeath.quote:SetText("")
-end
-
-function HCDeath:texColor(level)
-	HCDeath.texture:SetVertexColor(.75,.75,.75)
-	if HCDeaths_Settings.color then
-		if level == 60 then
-			-- gold
-			-- #ffd700
-			HCDeath.texture:SetVertexColor(255/255, 215/255, 0/255)
-		elseif level >= 50 then
-			-- #e0cc5f
-			HCDeath.texture:SetVertexColor(224/255, 204/255, 95/255)
-		elseif level >= 40 then
-			-- silver
-			HCDeath.texture:SetVertexColor(1,1,1)
-		elseif level >= 30 then
-			-- #b79d8c
-			HCDeath.texture:SetVertexColor(183/255, 157/255, 140/255)
-		elseif level >= 20 then
-			-- #ad7a56
-			HCDeath.texture:SetVertexColor(173/255, 122/255, 86/255)
-		end
-	end
-end
-
-function HCDeath:color(level)
-	HCDeath:texColor(level)
-end
-
-function HCDeath:sound(deathType, playerLevel)
-	if (deathType == "PVP" or deathType == "PVE") then
-		if HCDeaths_Settings.deathsound then
-			PlaySoundFile("Sound/interface/RaidWarning.wav")
-		end
-	else		
-		if HCDeaths_Settings.levelsound then
-			if deathType == "LVL" then
-				PlaySoundFile("Sound\\Doodad\\G_FireworkLauncher02Custom0.wav")
-			elseif deathType == "INFSTART" then
-				PlaySoundFile("\\Sound\\Creature\\Razuvious\\RAZ_NAXX_AGGRO01.wav")				
-			end
-		end		
-	end
-end
-
-function HCDeath:Toast()
-	if toastMove then return end
-	if HCDeaths_Settings.toast then
-		if not HCDeath.texture:IsVisible() then
-			for _, hcdeath in pairs(deaths) do
-				if hcdeath.info then
-					HCDeath:RemoveDeath(hcdeath.playerName)
-
-					if (hcdeath.deathType == "LVL" or hcdeath.deathType == "INFSTART") then
-						HCDeath:RemovePlayerDeath(hcdeath.playerName)
-					end
-
-					if (hcdeath.deathType == "LVL") and (not HCDeaths_Settings.progress) then return end					
-
-					local level = tonumber(hcdeath.playerLevel)
-					local class = RAID_CLASS_COLORS[strupper(hcdeath.playerClass)] or { r = 1, g = .5, b = 0 }
-					local hex = HCDeath:rgbToHex(class.r, class.g, class.b)
-
-					HCDeath.class:SetTexture(media.."Ring\\"..hcdeath.playerClass)
-					-- set tyoe texture
-					if (hcdeath.deathType == "PVP" or hcdeath.deathType == "PVE") then
-						HCDeath.type:SetTexture(media.."Ring\\"..hcdeath.deathType)
-					elseif (hcdeath.deathType == "INFSTART") then
-						HCDeath.type:SetTexture(media.."Ring\\".."INFERNO")
-					else
-						HCDeath.type:SetTexture(media.."Ring\\".."LVL")
-					end
-					HCDeath.level:SetText(hcdeath.playerLevel)
-					HCDeath.name:SetText("|cff"..hex..hcdeath.playerName)
-
-					if hcdeath.deathType == "LVL" then
-						HCDeath.death:SetText("")
-						if level == 60 then
-							HCDeath.zone:SetText("Has transcended death and reached level 60!")
-							-- HCDeath.quote:SetText("They shall henceforth be known as the Immortal")
-						else
-							HCDeath.zone:SetText("Has reached level "..level.."!")
-							-- HCDeath.quote:SetText("Their ascendance towards immortality continues")
-						end
-					elseif hcdeath.deathType == "INFSTART" then
-						HCDeath.death:SetText("")
-						HCDeath.zone:SetText("Has begun the Inferno Challenge!")
-					else
-						-- local locHex = HCDeath:locHex(hcdeath.zone)		
-						-- HCDeath.zone:SetText("Has died in ".."|cff"..locHex..hcdeath.zone)
-						HCDeath.zone:SetText("Has died in "..hcdeath.zone)
-						HCDeath.name:SetText("|cff"..hex..hcdeath.playerName)
-						if hcdeath.deathType == "PVE" then
-							if hcdeath.killerLevel then
-								HCDeath.death:SetText("to "..hcdeath.killerName.." level "..hcdeath.killerLevel)
-							else
-								HCDeath.death:SetText("to "..hcdeath.killerName)
-							end
-						elseif hcdeath.deathType == "PVP" then
-							local class = RAID_CLASS_COLORS[strupper(hcdeath.killerClass)] or { r = 1, g = .5, b = 0 }
-							local hex = HCDeath:rgbToHex(class.r, class.g, class.b)
-							HCDeath.death:SetText("to |cff"..hex..hcdeath.killerName.."|r level "..hcdeath.killerLevel)
-						end
-
-						if hcdeath.lastWords ~= "nil" then
-							HCDeath.lastwords:SetText('"'..hcdeath.lastWords..'"')
-						else
-							HCDeath.lastwords:SetText("")
-						end
-
-						-- HCDeath.quote:SetText("May this sacrifice not be forgotten!")
-					end				
-					
-					HCDeath:sound(hcdeath.deathType,  level)					
-					HCDeath:color(level)
-					HCDeath:showToast()
-					if (hcdeath.deathType == "PVP" or hcdeath.deathType == "PVE") then
-						HCDeath:updateLog(true)
-					end
-					break
-				end
-			end			
-		end
-	end	
-end
-
-function HCDeath:tableLength()
-	local count = 0
-	for _ in pairs(HCDeaths) do
-		count = count + 1
-	end
-	return count	
+function HCDeath:isInstance(location)
+    for _, loc in pairs(instances) do
+        if loc == location then
+            return true
+        end
+    end
+    return false
 end
 
 function HCDeath:rgbToHex(r, g, b)
     return string.format("%02X%02X%02X", r * 255, g * 255, b * 255)
 end
 
-function HCDeath:isInstance(location)
-	for _, loc in pairs(instances) do
-		if loc == location then
-			return true
-		end
-	end
-  	return false
-end
-
 function HCDeath:locHex(location)
-	if HCDeath:isInstance(location) then
-		return "A330C9"
-	end
-	return HCDeath:rgbToHex(1, .5, 0)
-end
-
-function HCDeath:locTex(dtype, hctype, location)
-	if dtype == "PVP" then
-		return media.."Log\\PVP"
-	elseif hctype == "INF" then
-		return media.."Log\\INFERNO"
-	else
-		return media.."Log\\PVE"
-	end
-end
-
-function HCDeath:RemoveDeath(name) -- Called by Toast
-	for i, hcdeath in ipairs(deaths) do
-		if (hcdeath.playerName == name) or (hcdeath.killerName == name) then
-			table.remove(deaths, i)			
-			break
-		end
-	end
-
-	if HCDeaths_LastWords[name] then
-		HCDeaths_LastWords[name] = nil
-	end
-end
-
-function HCDeath:RemovePlayerDeath(name) -- Called by Toast
-	for i, hcdeath in ipairs(HCDeaths) do
-		if (hcdeath.playerName == name) or (hcdeath.killerName == name) then
-			table.remove(HCDeaths, i)
-			break
-		end
-	end
-end
-
-function HCDeath:LogDeath() -- Called by add friend system message
-	for _, hcdeath in pairs(deaths) do
-		if not hcdeath.playerClass then
-			hcdeath.playerLevel, hcdeath.playerClass, hcdeath.zone = HCDeath:GetFriendInfo(hcdeath.playerName)
-
-			if (hcdeath.deathType ~= "PVP") and hcdeath.playerClass then
-				hcdeath.info = true			
-			end
-		end
-
-		if (hcdeath.deathType == "PVP") and hcdeath.playerClass and (not hcdeath.killerClass) then
-			hcdeath.killerLevel, hcdeath.killerClass = HCDeath:GetFriendInfo(hcdeath.killerName)
-			if hcdeath.killerClass then
-				hcdeath.info = true
-			end
-		end
-
-		if hcdeath.info then
-			-- check if we already have a death for the player, if we do don't log
-			local match
-			for _, death in pairs(HCDeaths) do
-				if death.playerName == hcdeath.playerName then
-					match = true
-					break
-				end
-			end
-
-			hcdeath.lastWords = tostring(HCDeaths_LastWords[hcdeath.playerName])
-
-			if not match then
-				table.insert(HCDeaths, {
-					sdate = hcdeath.sdate,
-					stime = hcdeath.stime,
-					deathType = hcdeath.deathType,
-					hcType = hcdeath.hcType,
-					zone = hcdeath.zone,
-					lastWords = hcdeath.lastWords,
-					playerName = hcdeath.playerName,
-					playerLevel = hcdeath.playerLevel,
-					playerClass = hcdeath.playerClass,
-					killerName = tostring(hcdeath.killerName),
-					killerLevel = tostring(hcdeath.killerLevel),
-					killerClass = tostring(hcdeath.killerClass)
-				})
-			end
-			
-			-- Remove friends				
-			if hcdeath.addedPlayer then
-				RemoveFriend(hcdeath.playerName)
-			else
-				-- already a friend
-				if (hcdeath.deathType ~= "PVP") then
-					HCDeath:Toast()
-				end
-			end
-
-			if hcdeath.addedKiller then
-				RemoveFriend(hcdeath.killerName)
-			else
-				-- already a friend
-				if (hcdeath.deathType == "PVP") then
-					HCDeath:Toast()
-				end
-			end
-
-		end
-	end
-end
-
-function HCDeath:GetFriendInfo(player)
-	-- name, level, class, area, connected, status, note = GetFriendInfo(friendIndex)
-	for i=0, GetNumFriends() do
-		local name, level, class, zone = GetFriendInfo(i)
-		if (name == player) then
-			return level, class, zone
-		end
-	end
-end
-
-function HCDeath:AddFriends()
-	for _, hcdeath in pairs(deaths) do
-		if not HCDeath:isFriend(hcdeath.playerName) then
-			AddFriend(hcdeath.playerName)
-			hcdeath.addedPlayer = true
-		else
-			-- player is already your friend
-			-- if pve death we can log, else we need to add the killer
-			if (hcdeath.deathType == "PVE") then
-				HCDeath:LogDeath()
-			end
-		end
-
-		if (hcdeath.deathType == "PVP") then
-			if not HCDeath:isFriend(hcdeath.killerName) then
-				AddFriend(hcdeath.killerName)
-				hcdeath.addedKiller = true
-			else
-				-- player is already your friend
-				HCDeath:LogDeath()
-			end
-		end		
-	end
-end
-
-function HCDeath:AddedFriend(player)
-	-- returns true if friend was added to deaths table
-	for _, hcdeath in pairs(deaths) do
-		if (hcdeath.playerName == player) or (hcdeath.killerName == player) then
-			return true
-		end
-	end
-end
-
-function HCDeath:isFriend(player)
-	for i=1, GetNumFriends() do
-		local name = GetFriendInfo(i)		
-		if (name == player) then
-			return true
-		end
-	end
-end
-
-function HCDeath:friendSlots()
-	-- the maximum friend limit for a vanilla client is 50
-	-- the addon requires 2 free friend slots to add the player and killer (if pvp death) info
-	local numFriends = GetNumFriends()
-	if (numFriends > 48) then
-		local requiredSlots = 50 - numFriends
-		DEFAULT_CHAT_FRAME:AddMessage("|cfffc5100Unable to log hardcore death due to friend list limit, please remove "..requiredSlots.." friend(s) to enable logging.|r")
-		return false
-	else
-		return true
-	end
-end
-
-function HCDeath:systemMessage(message)
-	if HCDeaths_Settings.message then
-		local info = ChatTypeInfo["SYSTEM"]
-		DEFAULT_CHAT_FRAME:AddMessage(message, info.r, info.g, info.b, info.id)
-	end
-end
-
-local testmsg
-function HCDeath:test(dtype, player, plevel, killer)	
-	if dtype == "pve" then
-		testmsg = "A tragedy has occurred. Hardcore character "..player.." died of natural causes at level "..plevel..". May this sacrifice not be forgotten."
-	elseif dtype == "pvp" then
-		testmsg = "A tragedy has occurred. Hardcore character "..player.." has fallen in PvP to "..killer.." at level "..plevel.."."
-	end
-	SendChatMessage(".server info")
-end
-
-function HCDeath:extractLinks(str)
-	local start = 1
-    local result = ""
-    while true do
-        local s, e, link = string.find(str, "|c.-|H.-|h%[(.-)%]|h|r", start)
-        if not s then break end
-        result = result .. string.sub(str, start, s - 1) .. "[" .. link .. "]"
-        start = e + 1
+    if HCDeath:isInstance(location) then
+        return "A330C9" -- Purple color for instances
     end
-    result = result .. string.sub(str, start)
-    return result
+    return HCDeath:rgbToHex(1, .5, 0) -- Orange color for regular zones
 end
 
-local HookChatFrame_OnEvent = ChatFrame_OnEvent
-function ChatFrame_OnEvent(event)
-	if (event == "CHAT_MSG_SYSTEM") then
-		if testmsg then
-			arg1 = testmsg
-			testmsg = nil
-		end
-
-		-- Examples of Turtle WoW HC progress messages:
-		-- "PLAYERNAME has reached level 20/30/40/50 in Hardcore mode! Their ascendance towards immortality continues, however, so do the dangers they will face.
-		-- "PLAYERNAME has transcended death and reached level 60 on Hardcore mode without dying once! PLAYERNAME shall henceforth be known as the Immortal!"
-
-		-- Examples of Turtle WoW Inferno messages:
-		-- Started = "PLAYERNAME has laughed in the face of death in the Hardcore challenge. PLAYERNAME has begun the Inferno Challenge!"
-		-- PVE (*does not show PLAYERNAME*) = "A tragedy has occurred. Inferno character has fallen to MOBNAME1 MOBNAME2 (level KILLERLEVEL) at level PLAYERLEVEL..."
-		-- NAT = ??
-		-- PVP = ??
-
-		-- Examples of Turtle WoW Hardcore messages:
-		-- PVE = "A tragedy has occurred. Hardcore character PLAYERNAME has fallen to MOBNAME1 MOBNAME2 (level KILLERLEVEL) at level PLAYERLEVEL..."
-		-- NAT = "A tragedy has occurred. Hardcore character PLAYERNAME died of natural causes at level PLAYERLEVEL..."
-		-- PvP = "A tragedy has occurred. Hardcore character PLAYERNAME has fallen in PvP to KILLERNAME at level PLAYERLEVEL..."
-
-		-- Example of /who result messages:
-		-- [PLAYERNAME]: Level PLAYERLEVEL PLAYERRACE PLAYERCLASS <PLAYERGUILD> - AREA
-		-- 1 player Total
-
-		-- Example of friend messages:
-		-- PLAYERNAME added to friends
-		-- PLAYERNAME removed from friends
-
-		local _, _, hcprogress = string.find(arg1, "(%a+) has reached level (%d%d) in Hardcore mode")
-		local _, _, hcimmortal = string.find(arg1, "(%a+) has transcended death and reached level 60")
-		local _, _, hcdeath = string.find(arg1,"A tragedy has occurred. Hardcore character (%a+)")
-		-- local _, _, infstart = string.find(arg1,"(%a+) has begun the Inferno Challenge")
-		-- local _, _, infdeath = string.find(arg1,"A tragedy has occurred. Inferno character (%a+)")
-
-		_, _, addedFriend = string.find(arg1,"(%a+) added to friends")
-		_, _, removedFriend = string.find(arg1,"(%a+) removed from friends")
-		_, _, alreadyFriend = string.find(arg1,"(%a+) is already your friend")
-		
-		if hcprogress or hcimmortal then
-			HCDeath:systemMessage(arg1)
-			
-			local _, _, playerName = string.find(arg1,"(%a+) has")
-			local _, _, playerLevel = string.find(arg1,"reached level (%d+)")
-
-			table.insert(deaths, {
-				sdate = date("!%Y/%m/%d"),
-				stime = date("!%H:%M:%S"),
-				deathType = "LVL",
-				hcType = "HC",
-				zone = nil,
-				playerName = playerName,
-				playerLevel = playerLevel,
-				playerClass = nil,
-				info = nil
-			})
-
-			if HCDeath:friendSlots() then
-				HCDeath:AddFriends()
-				return
-			end
-		elseif infstart then
-			HCDeath:systemMessage(arg1)
-			
-			local _, _, playerName = string.find(arg1,"(%a+) has")
-
-			table.insert(deaths, {
-				sdate = date("!%Y/%m/%d"),
-				stime = date("!%H:%M:%S"),
-				deathType = "INFSTART",
-				hcType = "INF",
-				zone = nil,
-				playerName = playerName,
-				playerLevel = nil,
-				playerClass = nil,
-				info = nil
-			})
-
-			if HCDeath:friendSlots() then
-				HCDeath:AddFriends()
-				return
-			end
-		elseif hcdeath then --or infdeath then
-			HCDeath:systemMessage(arg1)
-
-			local hcType = "HC"
-			-- local hcType 
-			-- if hcdeath then
-			-- 	hcType = "HC"
-			-- elseif infdeath then
-			-- 	hcType = "INF"
-			-- end			
-
-			local pvp, natural, playerLevel, deathType, killerName, killerLevel, killerClass
-			_, _, pvp = string.find(arg1,"(PvP)")
-			_, _, natural = string.find(arg1,"(natural causes)")
-			_, _, playerLevel = string.find(arg1,"at level (%d+)")
-
-			if pvp then 
-				deathType = "PVP"
-				_, _, killerName = string.find(arg1,"to%s+(%a+)")
-			else
-				deathType = "PVE"
-				if natural then
-					killerName = "Natural Causes"
-					killerClass = "ENV"
-				else
-					_, _, killerName = string.find(arg1,"to%s+(.-)%s*%(")
-					_, _, killerLevel = string.find(arg1,"%(level%s*(.-)%).-at")
-					killerClass = "NPC"
-				end
-			end
-
-			table.insert(deaths, {
-				sdate = date("!%Y/%m/%d"),
-				stime = date("!%H:%M:%S"),
-				deathType = deathType,
-				hcType = hcType,
-				zone = nil,
-				playerName = hcdeath,
-				playerLevel = playerLevel,
-				playerClass = nil,
-				killerName = killerName,
-				killerLevel = killerLevel,
-				killerClass = killerClass,
-				lastWords = nil,
-				info = nil
-			})
-
-			if HCDeath:friendSlots() then
-				HCDeath:AddFriends()
-				return
-			end
-			return
-		end
-
-		if addedFriend or alreadyFriend then
-			if HCDeath:AddedFriend(addedFriend) or HCDeath:AddedFriend(alreadyFriend) then
-				HCDeath:LogDeath()
-				return
-			end
-		elseif HCDeath:AddedFriend(removedFriend) then
-			HCDeath:Toast()
-			return
-		end
-	elseif (event == "CHAT_MSG_SAY" or event == "CHAT_MSG_YELL" or event == "CHAT_MSG_GUILD" or event == "CHAT_MSG_PARTY" or event == "CHAT_MSG_RAID" or event == "CHAT_MSG_RAID_LEADER") then
-		HCDeaths_LastWords[arg2] = HCDeath:extractLinks(arg1)
-	end
-
-	HookChatFrame_OnEvent(event)
+function HCDeath:typeSize()
+    local s = 25
+    HCDeath.type:SetWidth(s)
+    HCDeath.type:SetHeight(s)
 end
 
-function HCDeath:reset()
-	HCDeaths_Settings.message = true
-	HCDeaths_Settings.log = true
-	HCDeaths_Settings.toast = true
-	HCDeaths_Settings.color = false
-	HCDeaths_Settings.deathsound = true
-	HCDeaths_Settings.levelsound = true
-	HCDeaths_Settings.toastscale = 1
-	HCDeaths_Settings.logscale = 1
-	HCDeaths_Settings.toasttime = 10
-	HCDeaths_Settings.progress = true
+function HCDeath:showToast()
+    HCDeath:classSize()
+    HCDeath:typeSize()
+    HCDeathsToast:Show()
 
-	HCDeath:ToastScale()
-	HCDeathsToast:SetUserPlaced(false)
-	HCDeathsToast:position()
-
-	HCDeath:ToggleLog()
-	HCDeathsLog:SetUserPlaced(false)
-	HCDeathsLog:position()
+    toastTimer.time = GetTime() + HCDeaths_Settings.toasttime
+    toastTimer:Show()
 end
 
-function HCDeath:print(message)
-	DEFAULT_CHAT_FRAME:AddMessage("HCDeaths: "..message, 1, .5, 0)
+function HCDeath:hideToast()
+    HCDeathsToast:Hide()
+    HCDeath.name:SetText("")
+    HCDeath.level:SetText("")
+    HCDeath.zone:SetText("")
+    HCDeath.death:SetText("")
+    HCDeath.lastwords:SetText("")
 end
 
-local function HCDeaths_commands(msg, editbox)
-	local function fontnum(msg)
-		local startPos = string.find(msg, "%d")
-		local numstr = string.sub(msg, startPos)
-		if tonumber(numstr) then
-			return tonumber(numstr)
-		else
-			HCDeath:print("input was not a number, please try again")
-		end
-	end
-
-    local function message(setting, name)
-        local state = "off"
-        if setting then state = "on" end
-		HCDeath:print(name.." is "..state)
-    end
-
-	local num = nil
-	if string.find(msg, "toast scale %d") then
-		num = fontnum(msg)
-		HCDeaths_Settings.toastscale = num
-		HCDeath:ToastScale()
-		HCDeath:print("toast scale set to "..HCDeaths_Settings.toastscale)
-	elseif string.find(msg, "toast time %d") then
-		num = fontnum(msg)
-		HCDeaths_Settings.toasttime = num
-		HCDeath:print("toast time set to "..HCDeaths_Settings.toasttime.." seconds")
-	elseif string.find(msg, "log scale %d") then
-		num = fontnum(msg)
-		HCDeaths_Settings.logscale = num
-		HCDeath:LogScale()
-		HCDeath:print("log scale set to "..HCDeaths_Settings.logscale)
-	elseif msg == "message" then
-		if HCDeaths_Settings.message then
-			HCDeaths_Settings.message = false
-		else
-			HCDeaths_Settings.message = true
-		end
-		message(HCDeaths_Settings.message, "message")
-	elseif msg == "log" then
-		if HCDeaths_Settings.log then
-			HCDeaths_Settings.log = false
-		else
-			HCDeaths_Settings.log = true
-		end
-		message(HCDeaths_Settings.log, "log")
-		HCDeath:ToggleLog()
-	elseif msg == "toast" then
-		if HCDeaths_Settings.toast then
-			HCDeaths_Settings.toast = false
-		else
-			HCDeaths_Settings.toast = true
-		end
-		message(HCDeaths_Settings.toast, "toast")
-	elseif msg == "progress" then
-		if HCDeaths_Settings.progress then
-			HCDeaths_Settings.progress = false
-		else
-			HCDeaths_Settings.progress = true
-		end
-		message(HCDeaths_Settings.progress, "progress toast")
-	elseif msg == "color" then
-		if HCDeaths_Settings.color then
-			HCDeaths_Settings.color = false
-		else
-			HCDeaths_Settings.color = true
-		end
-		message(HCDeaths_Settings.color, "color")
-	elseif msg == "deathsound" then
-		if HCDeaths_Settings.deathsound then
-			HCDeaths_Settings.deathsound = false
-		else
-			HCDeaths_Settings.deathsound = true
-		end
-		message(HCDeaths_Settings.deathsound, "deathsound")
-	elseif msg == "levelsound" then
-		if HCDeaths_Settings.levelsound then
-			HCDeaths_Settings.levelsound = false
-		else
-			HCDeaths_Settings.levelsound = true
-		end
-		message(HCDeaths_Settings.levelsound, "levelsound")
-	elseif msg == "move" then
-		if toastMove then
-			toastMove = nil
-			HCDeath:print("hiding toast")
-			HCDeath:hideToast()
-		else
-			toastMove = true
-			HCDeath:print("showing toast")
-			HCDeath:toastMove()
-		end
-    elseif msg == "reset" then
-        HCDeath:reset()
-		HCDeath:print("settings reset")
-	elseif msg == "test" then
-		-- HCDeath:test("pve", "player", "level")
-		-- HCDeath:test("pvp", "player", "level", "killer")
-		HCDeath:test("pve", "Tents", "10")
-    else
-		HCDeath:print("commands:")
-		HCDeath:print("/hcd message - toggle system death messages")
-		HCDeath:print("/hcd move - toggles the toast so you can move it")
-		HCDeath:print("/hcd log - toggle death log")		
-		HCDeath:print("/hcd log scale num - sets the death log scale to num")
-		HCDeath:print("/hcd toast - toggle toast popups")
-		HCDeath:print("/hcd toast scale num - sets the toast popup scale to num")
-		HCDeath:print("/hcd toast time num - sets the number of seconds the toast will display to num")
-		HCDeath:print("/hcd progress - toggle level progress toasts")
-		HCDeath:print("/hcd color - toggle toast ring colors")
-		HCDeath:print("/hcd deathsound - toggle toast deathsounds")
-		HCDeath:print("/hcd levelsound - toggle toast levelsounds")
-		HCDeath:print("/hcd reset - reset settings")
+function HCDeath:texColor(level)
+    HCDeath.texture:SetVertexColor(.75,.75,.75)
+    if HCDeaths_Settings.color then
+        if level == 80 then
+            HCDeath.texture:SetVertexColor(255/255, 215/255, 0/255)
+        elseif level >= 70 then
+            HCDeath.texture:SetVertexColor(224/255, 204/255, 95/255)
+        elseif level >= 60 then
+            HCDeath.texture:SetVertexColor(1,1,1)
+        elseif level >= 40 then
+            HCDeath.texture:SetVertexColor(183/255, 157/255, 140/255)
+        elseif level >= 20 then
+            HCDeath.texture:SetVertexColor(173/255, 122/255, 86/255)
+        end
     end
 end
 
-do  
-	local max_width = 185
-	local max_height = 56
-  
-	local HCDeathsLog = CreateFrame("Button", "HCDeathsLog", HCDeath)
-	HCDeathsLog:Hide()
-
-	HCDeathsLog:SetWidth(max_width-20)
-	HCDeathsLog:SetHeight(max_height)
-  
-	HCDeathsLog:SetBackdrop({
-	  bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-	--   edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-	  edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-	  tile = true, tileSize = 16, edgeSize = 18,
-	  insets = { left = 5, right = 5, top = 5, bottom = 5 }
-	})
-	HCDeathsLog:SetBackdropColor(0,0,0)
-	HCDeathsLog:SetBackdropBorderColor(.5,.5,.5,1)
-  
-	HCDeathsLog.title = HCDeathsLog:CreateFontString(nil, "LOW", "GameFontNormal")
-	-- HCDeathsLog.title:SetPoint("TOPLEFT", HCDeathsLog, "TOPLEFT", 8, -7)
-	HCDeathsLog.title:SetPoint("TOP", HCDeathsLog, "TOP", 0, -7)
-	HCDeathsLog.title:SetText("Hardcore Deaths")
-	HCDeathsLog.title:SetTextColor(.5, .5, .5, 1)
-  
-	HCDeathsLog.scrollframe = CreateFrame("ScrollFrame", "HCDeathsLogScrollframe", HCDeathsLog, "UIPanelScrollFrameTemplate")
-	HCDeathsLog.scrollframe:SetHeight(max_height + 20)
-	HCDeathsLog.scrollframe:SetWidth(max_width - 34)
-	HCDeathsLog.scrollframe:SetPoint('CENTER', HCDeathsLog, 0, -8)
-	HCDeathsLog.scrollframe:Hide()	
-  
-	HCDeathsLog.container = CreateFrame("Frame", "HCDeathsLogContainer", HCDeathsLog)
-	HCDeathsLog.container:SetHeight(max_height - 5)
-	HCDeathsLog.container:SetWidth(max_width)
-	HCDeathsLog.container:SetPoint("CENTER", HCDeathsLog, 0, 0)
-  
-	HCDeathsLog:SetMovable(true)
-	HCDeathsLog:SetClampedToScreen(true)
-	HCDeathsLog:SetUserPlaced(true)
-	HCDeathsLog:EnableMouse(true)
-	HCDeathsLog:RegisterForClicks("RightButtonDown")
-	HCDeathsLog:RegisterForDrag("LeftButton")
-  
-	function HCDeathsLog:position()
-	  HCDeathsLog:ClearAllPoints()
-	  HCDeathsLog:SetPoint("BOTTOMLEFT", ChatFrame1, "TOPLEFT", 0, 45)
-	end
-  
-	HCDeathsLog:position()
-  
-	HCDeathsLog:SetScript("OnDragStart", function()
-	  if (IsShiftKeyDown() and IsControlKeyDown()) then
-		HCDeathsLog:StartMoving()
-	  end
-	end)
-  
-	HCDeathsLog:SetScript("OnDragStop", function()
-	  HCDeathsLog:StopMovingOrSizing()
-	end)
-  
-	HCDeathsLog:SetScript("OnClick", function()
-	  if (IsShiftKeyDown() and IsControlKeyDown()) then
-		HCDeathsLog:SetUserPlaced(false)
-		HCDeathsLog:position()
-	  end
-	end)	
-
-	HCDeathsLog.limit = 50
-	HCDeathsLog.type = {}
-	HCDeathsLog.level = {}
-	HCDeathsLog.name = {}
-	HCDeathsLog.class = {}
-	HCDeathsLog.background = {}
-
-	for i=1, HCDeathsLog.limit do
-		local tex = 15
-		tinsert(HCDeathsLog.type, HCDeathsLog.container:CreateTexture(nil,"LOW"))	
-		HCDeathsLog.type[i]:SetWidth(tex)
-		HCDeathsLog.type[i]:SetHeight(tex)
-		HCDeathsLog.type[i]:Hide()
-
-		tinsert(HCDeathsLog.level, HCDeathsLog.container:CreateFontString(nil, "LOW", "GameFontNormal"))
-		HCDeathsLog.level[i]:SetJustifyH("LEFT")
-
-		tinsert(HCDeathsLog.name, HCDeathsLog.container:CreateFontString(nil, "LOW", "GameFontNormal"))
-		HCDeathsLog.name[i]:SetJustifyH("LEFT")
-
-		tinsert(HCDeathsLog.class, HCDeathsLog.container:CreateTexture(nil,"LOW"))
-		HCDeathsLog.class[i]:SetWidth(tex)
-		HCDeathsLog.class[i]:SetHeight(tex)
-		HCDeathsLog.class[i]:Hide()
-
-		tinsert(HCDeathsLog.background, CreateFrame("Frame",nil,HCDeathsLog.container))		
-		HCDeathsLog.background[i]:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background" })
-		HCDeathsLog.background[i]:Hide()
-		HCDeathsLog.background[i]:EnableMouse(true)	
-		
-		HCDeathsLog.background[i]:SetScript("OnLeave", function()
-			GameTooltip:Hide()
-		end)
-	end
-
-	local function mouseWheel()
-		local scrollBar = getglobal(this:GetName().."ScrollBar");
-
-		if arg1 > 0 then
-		  if IsShiftKeyDown() then
-			scrollBar:SetValue(0)
-		  else
-			scrollBar:SetValue(scrollBar:GetValue() - (scrollBar:GetHeight() / 2))
-		  end
-		elseif arg1 < 0 then
-		  if IsShiftKeyDown() then
-			scrollBar:SetValue(1000)			
-		  else
-			scrollBar:SetValue(scrollBar:GetValue() + (scrollBar:GetHeight() / 2))
-		  end
-		end
-
-		if scrollBar:GetValue() > 0 then
-			scrollBar:SetAlpha(1)
-		else
-			scrollBar:SetAlpha(0)
-		end
-	end
-
-	HCDeathsLog.scrollframe:SetScript("OnMouseWheel", mouseWheel)
-end
-
-function HCDeath:ToggleLog()
-	if HCDeaths_Settings.log then
-		HCDeath:LogScale()	
-		HCDeathsLog:Show()
-		HCDeath:updateLog()
-	else
-		HCDeathsLog:Hide()
-	end
-end
-
-function HCDeath:updateLog()
-	if not HCDeathsLog:IsShown() then return end
-	local max_width = HCDeathsLog:GetWidth()
-	local max_height = HCDeathsLog:GetHeight()
-	local xoff = 10
-	local yoff = 0
-
-	HCDeathsLog:SetHeight(105)
-
-	local max = HCDeath:tableLength()
-	local min = max - HCDeathsLog.limit
-	local limit = HCDeathsLog.limit
-
-	for i = max, min, -1 do
-		local hcdeath = HCDeaths[i]
-		if not hcdeath then return end
-		if not HCDeathsLog.type[limit] then return end
-
-		if (hcdeath.deathType == "PVP" or hcdeath.deathType == "PVE") then
-			local dtype = HCDeathsLog.type[limit]		
-			local level = HCDeathsLog.level[limit]
-			local name = HCDeathsLog.name[limit]
-			local class = HCDeathsLog.class[limit]
-			local background = HCDeathsLog.background[limit]
-			limit = limit - 1
-
-			dtype:SetPoint("TOPLEFT", HCDeathsLog.container, "TOPLEFT", 0, -yoff)
-			level:SetPoint("TOPLEFT", HCDeathsLog.container, "TOPLEFT", 18, -yoff-2)
-			name:SetPoint("TOPLEFT", HCDeathsLog.container, "TOPLEFT", 40, -yoff-2)
-			class:SetPoint("TOPLEFT", HCDeathsLog.container, "TOPLEFT", 135, -yoff)
-			
-			-- type
-			-- locTexture
-			local locTex = HCDeath:locTex(hcdeath.deathType, hcdeath.hcType, hcdeath.zone)
-			dtype:SetTexture(locTex)
-			dtype:Show()
-
-			-- level
-			level:SetText(hcdeath.playerLevel)
-
-			-- name
-			local pclass = RAID_CLASS_COLORS[strupper(hcdeath.playerClass)] or { r = .5, g = .5, b = .5 }
-			local classhex = HCDeath:rgbToHex(pclass.r, pclass.g, pclass.b)
-			name:SetText("|cff"..classhex..hcdeath.playerName)
-
-			-- class
-			class:SetTexture(media.."Log\\"..hcdeath.playerClass)
-			class:Show()
-
-			-- background
-			background:SetPoint("TOPLEFT", dtype, "TOPLEFT")
-			background:SetPoint("BOTTOMRIGHT", class, "BOTTOMRIGHT")
-			if mod(i, 2) == 1 then
-				background:SetBackdropColor(1,1,1,.1)
-			else
-				background:SetBackdropColor(.5,.5,.5,.1)
-			end
-			background:Show()
-
-			background:SetScript("OnEnter", function()			
-				local death = {}
-				if hcdeath.deathType == "PVP" then
-					death.type = "PvP Death"
-					death.r = 1
-					death.g = 0
-					death.b = 0
-				else
-					death.type = "PvE Death"
-					death.r = 1
-					death.g = .5
-					death.b = 0
-				end
-
-				-- player			
-				local pname = "|cff"..classhex..hcdeath.playerName.."|r"
-				local pclass = "|cff"..classhex..hcdeath.playerClass.."|r"
-				local locHex = HCDeath:locHex(hcdeath.zone)	
-				local zone = "|cff"..locHex..hcdeath.zone.."|r"
-
-				local lastwords = ""
-				if hcdeath.lastWords ~= "nil" then
-					lastwords = NORMAL_FONT_COLOR_CODE..'Their last words were '..GRAY_FONT_COLOR_CODE..'"'..hcdeath.lastWords..'"'..NORMAL_FONT_COLOR_CODE..'.|r'
-				end
-
-				-- killer
-				local kclass = RAID_CLASS_COLORS[strupper(hcdeath.killerClass)] or { r = 1, g = .5, b = 0 }
-				local classhex = HCDeath:rgbToHex(kclass.r, kclass.g, kclass.b)				
-				local kname = "|cff"..classhex..hcdeath.killerName.."|r"
-				kclass = "|cff"..classhex..hcdeath.killerClass.."|r"
-				
-				local killer
-				if hcdeath.deathType == "PVP" then
-					killer = kname..NORMAL_FONT_COLOR_CODE.." the level "..hcdeath.killerLevel.." |r"..kclass
-				else
-					if hcdeath.killerLevel ~= "nil" then
-						killer = kname..NORMAL_FONT_COLOR_CODE.." level "..hcdeath.killerLevel.."|r"
-					else
-						killer = kname
-					end
-				end
-
-				-- tooltip				
-				if not GameTooltip:IsShown() then 
-					GameTooltip:SetOwner(this, ANCHOR_BOTTOMLEFT)
-				end
-				GameTooltip:ClearLines()
-				GameTooltip:AddLine(death.type, death.r, death.g, death.b)
-				GameTooltip:AddLine(pname..NORMAL_FONT_COLOR_CODE.." the level "..hcdeath.playerLevel.." |r"..pclass..NORMAL_FONT_COLOR_CODE.." died in |r"..zone..NORMAL_FONT_COLOR_CODE.." to |r"..killer..NORMAL_FONT_COLOR_CODE..". |r"..lastwords,_,_,_,true)
-				-- GameTooltip:AddLine("Date: "..hcdeath.sdate.." Time: "..hcdeath.stime)
-				GameTooltip:Show()
-			end)
-			
-			yoff = yoff + 15 -- spacing between items
-			HCDeathsLog.container:SetHeight(75)			
-		
-			if not HCDeathsLog.scrollframe:IsShown() then
-				HCDeathsLog.container:SetParent(HCDeathsLog.scrollframe)
-				HCDeathsLog.container:SetHeight(HCDeathsLog.scrollframe:GetHeight())
-				HCDeathsLog.container:SetWidth(HCDeathsLog.scrollframe:GetWidth())
-		
-				HCDeathsLog.scrollframe:SetScrollChild(HCDeathsLog.container)
-				HCDeathsLog.scrollframe:Show()
-				HCDeathsLogScrollframeScrollBar:SetAlpha(0)
-			end
-		end
-	end
+function HCDeath:sound(deathType)
+    if (deathType == "NPC" or deathType == "PLAYER" or deathType == "PVP") then
+        if HCDeaths_Settings.deathsound then
+            PlaySoundFile(DEATH_SOUND)
+        end
+    elseif HCDeaths_Settings.levelsound then
+        if deathType == "LVL" then
+            PlaySoundFile(LEVEL_UP_SOUND)
+        elseif deathType == "MAX_LEVEL" then
+            PlaySoundFile(HARDCORE_COMPLETE_SOUND)
+        end
+    end
 end
 
 function HCDeath:ToastScale()
-	HCDeathsToast:SetScale(HCDeaths_Settings.toastscale)
+    HCDeathsToast:SetScale(HCDeaths_Settings.toastscale)
 end
 
-function HCDeath:LogScale()
-	HCDeathsLog:SetScale(HCDeaths_Settings.logscale)
+function HCDeath:toastLVL(playerName, playerLevel)
+
+    HCDeath.level:SetText(playerLevel)
+    local iconDisplay
+    if tonumber(playerLevel) == 20 then
+        iconDisplay = SOUL_OF_IRON_20
+    else
+        iconDisplay = SOUL_OF_IRON_40
+    end
+    local _, _, _, _, _, _, _, _, _, showIcon = GetAchievementInfo(iconDisplay)
+
+    HCDeath.type:SetTexture(showIcon)
+    HCDeath.name:SetText(playerName.."")
+    HCDeath.zone:SetText("has reached level "..playerLevel.." in Hardcore mode!")
+    HCDeath.death:SetText("Their ascendance towards immortality continues.")
+    HCDeath.lastwords:SetText("")
+
+    HCDeath:texColor(playerLevel)   
+    HCDeath.class:SetTexture(showIcon)
+    HCDeath:classSize()
+    HCDeath:typeSize()
+    HCDeath:showToast()
+    HCDeath:sound("LVL")
 end
 
-HCDeath:RegisterEvent("PLAYER_ENTERING_WORLD")
+function HCDeath:toastMAX_LEVEL(playerName)
+
+    HCDeath.level:SetText(MAX_LEVEL)
+
+    local iconDisplay = SOUL_OF_IRON_60
+    local _, _, _, _, _, _, _, _, _, showIcon = GetAchievementInfo(iconDisplay)
+
+    HCDeath.type:SetTexture(showIcon)
+    HCDeath.name:SetText(playerName.."")
+    HCDeath.zone:SetText("has transcended death and reached level "..MAX_LEVEL.." on Hardcore mode without dying once!")
+    HCDeath.death:SetText(playerName.." shall henceforth be known as |cffFF8000the Immortal|r!")
+    HCDeath.lastwords:SetText("'"..GetRandomCelebrationQuote().."'")
+
+    HCDeath:texColor(MAX_LEVEL)
+    HCDeath.class:SetTexture(showIcon)
+    HCDeath:classSize()
+    HCDeath:typeSize()
+    HCDeath:showToast()
+    HCDeath:sound("MAX_LEVEL")
+end
+
+function HCDeath:toastDEATH(playerName, deathType, killerName, playerZone, playerLevel)
+
+    if playerZone == nil then
+        playerZone = "the world"
+    end
+
+    HCDeath.level:SetText(playerLevel)
+    HCDeath.name:SetText(playerName)
+    HCDeath.zone:SetText("A tragedy has occurred.")
+
+    if deathType == "NPC" then
+        local zoneHex = HCDeath:locHex(playerZone)
+        HCDeath.death:SetText(playerName.." has fallen to "..killerName.." at level "..playerLevel.." somewhere in |cff"..zoneHex..playerZone..".")
+    elseif deathType == "PLAYER" then
+        local zoneHex = HCDeath:locHex(playerZone)
+        HCDeath.death:SetText(playerName.." has died of natural causes at level "..playerLevel.." somewhere in |cff"..zoneHex..playerZone..".")
+    elseif deathType == "PVP" then
+        local zoneHex = HCDeath:locHex(playerZone)
+        HCDeath.death:SetText(playerName.." has fallen to "..killerName.." at level "..playerLevel.." somewhere in |cff"..zoneHex..playerZone..".")
+    elseif deathType == "UNKNOWN" then
+        local zoneHex = HCDeath:locHex("the timeways")
+        HCDeath.death:SetText(playerName.." has fallen at level "..playerLevel.." somewhere in |cff"..zoneHex.."the timeways.")
+    end
+
+    HCDeath.type:SetTexture(SOUL_OF_IRON_ICON)
+    HCDeath.lastwords:SetText("'"..GetRandomLastWords(deathType).."'")
+
+    HCDeath:texColor(playerLevel)
+    HCDeath.class:SetTexture(SOUL_OF_IRON_ICON)
+    HCDeath:classSize()
+    HCDeath:typeSize()
+    HCDeath:showToast()
+    HCDeath:sound(deathType)
+end
+
+-- Slash command handling
+local function HCDeaths_commands(msg)
+    if msg == "toggle" then
+        HCDeaths_Settings.toast = not HCDeaths_Settings.toast
+        DEFAULT_CHAT_FRAME:AddMessage("HCDeaths: Toast notifications " .. (HCDeaths_Settings.toast and "enabled" or "disabled"))
+    elseif msg == "sound" then
+        HCDeaths_Settings.deathsound = not HCDeaths_Settings.deathsound
+        DEFAULT_CHAT_FRAME:AddMessage("HCDeaths: Death sounds " .. (HCDeaths_Settings.deathsound and "enabled" or "disabled"))
+    elseif msg == "levelsound" then
+        HCDeaths_Settings.levelsound = not HCDeaths_Settings.levelsound
+        DEFAULT_CHAT_FRAME:AddMessage("HCDeaths: Level sounds " .. (HCDeaths_Settings.levelsound and "enabled" or "disabled"))
+    elseif msg == "testd" then
+        HCDeath:toastDEATH("Bset", "PVP", "Riftwan", "The Crossroads", "60")
+        toastTimer.time = GetTime() + HCDeaths_Settings.toasttime
+        toastTimer:Show()
+    elseif msg == "testl" then
+        HCDeath:toastLVL("Bset", 20)
+        toastTimer.time = GetTime() + HCDeaths_Settings.toasttime
+        toastTimer:Show()
+    elseif msg == "testm" then
+        HCDeath:toastMAX_LEVEL("Bset")
+        toastTimer.time = GetTime() + HCDeaths_Settings.toasttime
+        toastTimer:Show()
+    elseif msg == "color" then
+        HCDeaths_Settings.color = not HCDeaths_Settings.color
+        DEFAULT_CHAT_FRAME:AddMessage("HCDeaths: Color coding " .. (HCDeaths_Settings.color and "enabled" or "disabled"))
+    elseif msg == "reset" then
+        HCDeaths_Settings = {
+            message = true,
+            toast = true,
+            color = false,
+            levelsound = true,
+            deathsound = true,
+            toastscale = 1,
+            toasttime = 10,
+        }
+        HCDeath:ToastScale()
+        HCDeathsToast:SetUserPlaced(false)
+        HCDeathsToast:position()
+        DEFAULT_CHAT_FRAME:AddMessage("HCDeaths: Settings reset to defaults")
+    else
+        DEFAULT_CHAT_FRAME:AddMessage("HCDeaths commands:")
+        DEFAULT_CHAT_FRAME:AddMessage("/hcd toggle - Toggle toast notifications")
+        DEFAULT_CHAT_FRAME:AddMessage("/hcd sound - Toggle death sounds")
+        DEFAULT_CHAT_FRAME:AddMessage("/hcd levelsound - Toggle level up sounds")
+        DEFAULT_CHAT_FRAME:AddMessage("/hcd color - Toggle color coding")
+        DEFAULT_CHAT_FRAME:AddMessage("/hcd reset - Reset all settings to default")
+    end
+end
+
+-- Register slash commands
+SLASH_HCDEATHS1 = "/hcdeaths"
+SLASH_HCDEATHS2 = "/hcd"
+SlashCmdList["HCDEATHS"] = HCDeaths_commands
+
+-- Main event handler
+HCDeath:RegisterEvent("CHAT_MSG_CHANNEL")
+
+-- Modify the event handler to only process messages from channel 5
 HCDeath:SetScript("OnEvent", function()
-	if not this.loaded then
-		this.loaded = true
-		SLASH_HCDEATHS1 = "/hcdeaths"
-		SLASH_HCDEATHS2 = "/hcd"
-		SlashCmdList["HCDEATHS"] = HCDeaths_commands
-		HCDeath:Check_pfUI()
-		HCDeath:ToastScale()
-		HCDeath:ToggleLog()			
-		HCDeath:print("HCDeaths Loaded! /hcdeaths or /hcd")
-	end
-end)
+    if event == "CHAT_MSG_CHANNEL" then
+        if arg8 ~= 5 then return end
+        
+        -- Clean inline during matching - most concise
+        local msg = string.gsub(string.gsub(arg1, "|c%x%x%x%x%x%x%x%x", ""), "|r", "")
+        
+        local reportType = nil
 
-function HCDeath:toastMove()
-	HCDeath.level:SetText("60")
-	HCDeath.name:SetText("Toast")
-	HCDeath.zone:SetText("Has died in Blackrock Mountains")
-	HCDeath.death:SetText("to Torta level 60")
-	HCDeath.lastwords:SetText('"'.."I like turtles!"..'"')
-	-- HCDeath.quote:SetText("May this sacrifice not be forgotten!")
-	
-	HCDeath:color(60)
-	HCDeath.texture:SetVertexColor(.75,.75,.75)	
-	HCDeath.class:SetTexture(media.."Ring\\".."Warrior")
-	HCDeath.type:SetTexture(media.."Ring\\".."PVP")
-	HCDeath:classSize()
-	HCDeath:typeSize()
-	HCDeathsToast:Show()
-end
+        if string.match(msg, PVP_STRING) or string.match(msg, NPC_STRING) or 
+           string.match(msg, NATURAL_CAUSES_STRING) or string.match(msg, UNKNOWN_CAUSE_STRING) then
+            reportType = "DEATH"
+        elseif string.match(msg, MAX_MILESTONE_STRING) then
+            reportType = "MAX_LEVEL"
+        elseif string.match(msg, MILESTONE_STRING) then
+            reportType = "LEVEL_UP"
+        else
+            return
+        end
+
+        if reportType == "LEVEL_UP" then
+            HCDeath:toastLVL(playerName, playerLevel)
+            toastTimer.time = GetTime() + HCDeaths_Settings.toasttime
+            toastTimer:Show()
+        elseif reportType == "MAX_LEVEL" then
+            HCDeath:toastMAX_LEVEL(playerName)
+            toastTimer.time = GetTime() + HCDeaths_Settings.toasttime
+            toastTimer:Show()
+        elseif reportType == "DEATH" then
+            local playerName = ""
+            local killerName = ""
+            local playerLevel = ""
+            local playerZone = ""
+            local deathType = ""
+            
+            if string.match(arg1, PVP_STRING) then
+                deathType = "PVP"
+                playerName, killerName, playerZone, playerLevel = string.match(arg1, PVP_STRING)
+            elseif string.match(arg1, NPC_STRING) then
+                deathType = "NPC"
+                playerName, killerName, playerZone, playerLevel = string.match(arg1, NPC_STRING)
+            elseif string.match(arg1, NATURAL_CAUSES_STRING) then
+                deathType = "PLAYER"
+                playerName, killerName, playerZone, playerLevel = string.match(arg1, NATURAL_CAUSES_STRING)
+            else
+                deathType = "UNKNOWN"
+                playerName, playerZone, playerLevel = string.match(arg1, UNKNOWN_CAUSE_STRINGN)
+                killerName = nil
+            end
+
+            if playerName and playerLevel then
+                HCDeath:toastDEATH(playerName, deathType, killerName, playerZone, playerLevel)
+                toastTimer.time = GetTime() + HCDeaths_Settings.toasttime
+                toastTimer:Show()
+            end
+        end
+    end
+end)

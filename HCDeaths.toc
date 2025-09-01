@@ -1,8 +1,10 @@
-## Interface: 11200
-## Title: HCDeaths
-## Author: Grylls
-## Notes: Displays and logs hardcore deaths
+## Interface: 30300
+## Title: HCDeaths|cFF00FF00 Project Epoch|r
+## Author: Grylls & ported by Bset
+## Notes: Displays hardcore mode deaths for Project Epoch servers
 ## Version: GIT
 ## SavedVariables: HCDeaths_Settings, HCDeaths, HCDeaths_LastWords
+## X-Category: Interface Enhancements
 
 HCDeaths.lua
+HCDeaths.xml

@@ -1,0 +1,107 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <Frame name="HardcoreChallengeRewardTemplate" virtual="true">
+        <Size x="32" y="32"/>
+        <Layers>
+            <Layer level="BACKGROUND">
+                <Texture name="$parentBorder" file="Interface\Buttons\UI-Quickslot2">
+                    <Size x="64" y="64"/>
+                    <Anchors>
+                        <Anchor point="CENTER"/>
+                    </Anchors>
+                </Texture>
+            </Layer>
+            <Layer level="ARTWORK">
+                <Texture name="$parentIcon"/>
+            </Layer>
+        </Layers>
+        <Scripts>
+            <OnEnter>
+                GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
+            </OnEnter>
+            <OnLeave>
+                GameTooltip:Hide();
+            </OnLeave>
+        </Scripts>
+    </Frame>
+
+    <Frame name="HardcoreChallengePopup" parent="UIParent" hidden="true" inherits="BasicFrameTemplateWithInset" enableMouse="true" frameStrata="DIALOG">
+        <Size x="400" y="300"/>
+        <Anchors>
+            <Anchor point="CENTER"/>
+        </Anchors>
+        <Layers>
+            <Layer level="BACKGROUND">
+                <Texture file="Interface\DialogFrame\UI-DialogBox-Background">
+                    <Anchors>
+                        <Anchor point="TOPLEFT" x="7" y="-7"/>
+                        <Anchor point="BOTTOMRIGHT" x="-7" y="7"/>
+                    </Anchors>
+                </Texture>
+            </Layer>
+            <Layer level="OVERLAY">
+                <FontString name="$parentTitle" inherits="GameFontNormalLarge" text="Hardcore Challenge">
+                    <Anchors>
+                        <Anchor point="TOP" x="0" y="-5"/>
+                    </Anchors>
+                </FontString>
+                <FontString name="$parentDesc" inherits="GameFontNormal" justifyH="LEFT">
+                    <Size x="360" y="0"/>
+                    <Anchors>
+                        <Anchor point="TOPLEFT" x="20" y="-40"/>
+                    </Anchors>
+                </FontString>
+                <FontString name="$parentRewards" inherits="GameFontNormalLarge" text="Rewards:">
+                    <Anchors>
+                        <Anchor point="CENTER" x="0" y="20"/>
+                    </Anchors>
+                </FontString>
+                <FontString name="$parentTitle" inherits="GameFontNormal" text="TITLE: the Immortal">
+                    <Anchors>
+                        <Anchor point="CENTER" x="0" y="-10"/>
+                    </Anchors>
+                </FontString>
+            </Layer>
+        </Layers>
+        <Frames>
+            <!-- Reward frames -->
+            <Frame name="$parentReward2" inherits="HardcoreChallengeRewardTemplate">
+                <Anchors>
+                    <Anchor point="CENTER" relativePoint="CENTER" x="0" y="-56"/>
+                </Anchors>
+            </Frame>
+            <Frame name="$parentReward1" inherits="HardcoreChallengeRewardTemplate">
+                <Anchors>
+                    <Anchor point="RIGHT" relativeTo="$parentReward2" relativePoint="LEFT" x="-16" y="0"/>
+                </Anchors>
+            </Frame>
+            <Frame name="$parentReward3" inherits="HardcoreChallengeRewardTemplate">
+                <Anchors>
+                    <Anchor point="LEFT" relativeTo="$parentReward2" relativePoint="RIGHT" x="16" y="0"/>
+                </Anchors>
+            </Frame>
+
+            <Button name="$parentDeclineButton" inherits="UIPanelButtonTemplate" text="Decline">
+                <Size x="140" y="22"/>
+                <Anchors>
+                    <Anchor point="BOTTOMRIGHT" x="-20" y="20"/>
+                </Anchors>
+                <Scripts>
+                    <OnClick>
+                        HardcoreChallengePopup:Hide();
+                    </OnClick>
+                </Scripts>
+            </Button>
+            <Button name="$parentAcceptButton" inherits="UIPanelButtonTemplate" text="Accept Challenge">
+                <Size x="140" y="22"/>
+                <Anchors>
+                    <Anchor point="BOTTOMLEFT" x="20" y="20"/>
+                </Anchors>
+                <Scripts>
+                    <OnClick>
+                        HardcoreChallenge_AcceptChallenge();
+                    </OnClick>
+                </Scripts>
+            </Button>
+        </Frames>
+    </Frame>
+</Ui>
