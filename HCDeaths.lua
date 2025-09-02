@@ -798,12 +798,12 @@ HCDeath:SetScript("OnEvent", function()
         
         local reportType = nil
 
-        if string.match(msg, PVP_STRING) or string.match(msg, NPC_STRING) or 
-           string.match(msg, NATURAL_CAUSES_STRING) or string.match(msg, UNKNOWN_CAUSE_STRING) then
+        if string.match(msg, PVP_STRING) ~= nil or string.match(msg, NPC_STRING) ~= nil or 
+           string.match(msg, NATURAL_CAUSES_STRING) ~= nil or string.match(msg, UNKNOWN_CAUSE_STRING) ~= nil then
             reportType = "DEATH"
-        elseif string.match(msg, MAX_MILESTONE_STRING) then
+        elseif string.match(msg, MAX_MILESTONE_STRING) ~= nil then
             reportType = "MAX_LEVEL"
-        elseif string.match(msg, MILESTONE_STRING) then
+        elseif string.match(msg, MILESTONE_STRING) ~= nil then
             reportType = "LEVEL_UP"
         else
             return
@@ -824,13 +824,13 @@ HCDeath:SetScript("OnEvent", function()
             local playerZone = ""
             local deathType = ""
             
-            if string.match(arg1, PVP_STRING) then
+            if string.match(arg1, PVP_STRING) ~= nil then
                 deathType = "PVP"
                 playerName, killerName, playerZone, playerLevel = string.match(arg1, PVP_STRING)
-            elseif string.match(arg1, NPC_STRING) then
+            elseif string.match(arg1, NPC_STRING) ~= nil then
                 deathType = "NPC"
                 playerName, killerName, playerZone, playerLevel = string.match(arg1, NPC_STRING)
-            elseif string.match(arg1, NATURAL_CAUSES_STRING) then
+            elseif string.match(arg1, NATURAL_CAUSES_STRING) ~= nil then
                 deathType = "PLAYER"
                 playerName, killerName, playerZone, playerLevel = string.match(arg1, NATURAL_CAUSES_STRING)
             else
