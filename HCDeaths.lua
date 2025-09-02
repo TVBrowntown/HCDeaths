@@ -21,13 +21,13 @@ local DEATH_SOUND = "Sound\\Interface\\RaidWarning.wav"
 local DEATH_PLAYER_SOUND = DEATH_SOUND
 local DEATH_PVP_SOUND = DEATH_SOUND
 
-local NPC_STRING = "(.-) fell to the blows of ${death.source} at (.-) and now brandishes a tarnished soul after reaching level (%d+)."
+local NPC_STRING = "(.-) fell to the blows of (.-) at (.-) and now brandishes a tarnished soul after reaching level (%d+)."
 local PVP_STRING = "(.-) was slaughtered in PvP combat by (.-) at (.-) and now brandishes a tarnished soul after reaching level (%d+)."
 local NATURAL_CAUSES_STRING = "(.-) died by (.-) at (.-) and now brandishes a tarnished soul after reaching level (%d+)."
 local UNKNOWN_CAUSE_STRING = "(.-) collapsed into the timeways at (.-) and now brandishes a tarnished soul after reaching level (%d+)."
 
-local MILESTONE_STRING = "|cffFFFF00(.-) has reached level (%d+) with a Soul of Iron.|r"
-local MAX_MILESTONE_STRING = "|cffFFFF00(.-) has attained the mighty level of (%d+) with a Soul of Iron. Witness their might!|r"
+local MILESTONE_STRING = "(.-) has reached level (%d+) with a Soul of Iron."
+local MAX_MILESTONE_STRING = "(.-) has attained the mighty level of (%d+) with a Soul of Iron. Witness their might!"
 
 local SOUL_OF_IRON_ICON = "Interface\\Icons\\Spell_Shadow_Skull"
 local SOUL_OF_IRON_20 = 5016
@@ -731,18 +731,28 @@ local function HCDeaths_commands(msg)
     elseif msg == "levelsound" then
         HCDeaths_Settings.levelsound = not HCDeaths_Settings.levelsound
         DEFAULT_CHAT_FRAME:AddMessage("HCDeaths: Level sounds " .. (HCDeaths_Settings.levelsound and "enabled" or "disabled"))
-    elseif msg == "testd" then
-        HCDeath:toastDEATH("Bset", "PVP", "Riftwan", "The Crossroads", "60")
-        toastTimer.time = GetTime() + HCDeaths_Settings.toasttime
-        toastTimer:Show()
-    elseif msg == "testl" then
-        HCDeath:toastLVL("Bset", 20)
-        toastTimer.time = GetTime() + HCDeaths_Settings.toasttime
-        toastTimer:Show()
-    elseif msg == "testm" then
-        HCDeath:toastMAX_LEVEL("Bset")
-        toastTimer.time = GetTime() + HCDeaths_Settings.toasttime
-        toastTimer:Show()
+    elseif msg == "test" then
+        local random_number = math.random(1, 3)
+        if random_number == 1  then
+            HCDeath:toastDEATH("Bset", "PVP", "Riftwan", "The Crossroads", "60")
+            toastTimer.time = GetTime() + HCDeaths_Settings.toasttime
+            toastTimer:Show()
+        elseif random_number == 2 then
+            local level
+            local random_level = math.random(1, 2)
+            if random_level == 1 then
+                level = 20
+            else
+                level = 40
+            end
+            HCDeath:toastLVL("Bset", level)
+            toastTimer.time = GetTime() + HCDeaths_Settings.toasttime
+            toastTimer:Show()
+        else
+            HCDeath:toastMAX_LEVEL("Bset")
+            toastTimer.time = GetTime() + HCDeaths_Settings.toasttime
+            toastTimer:Show()
+        end
     elseif msg == "color" then
         HCDeaths_Settings.color = not HCDeaths_Settings.color
         DEFAULT_CHAT_FRAME:AddMessage("HCDeaths: Color coding " .. (HCDeaths_Settings.color and "enabled" or "disabled"))
@@ -781,7 +791,7 @@ HCDeath:RegisterEvent("CHAT_MSG_CHANNEL")
 -- Modify the event handler to only process messages from channel 5
 HCDeath:SetScript("OnEvent", function()
     if event == "CHAT_MSG_CHANNEL" then
-        if arg8 ~= 5 then return end
+        if arg2 ~= "" then return end
         
         -- Clean inline during matching - most concise
         local msg = string.gsub(string.gsub(arg1, "|c%x%x%x%x%x%x%x%x", ""), "|r", "")

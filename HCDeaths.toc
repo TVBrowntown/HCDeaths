@@ -2,7 +2,7 @@
 ## Title: HCDeaths|cFF00FF00 Project Epoch|r
 ## Author: Grylls & ported by Bset
 ## Notes: Displays hardcore mode deaths for Project Epoch servers
-## Version: GIT
+## Version: 1.1
 ## SavedVariables: HCDeaths_Settings, HCDeaths, HCDeaths_LastWords
 ## X-Category: Interface Enhancements
 
