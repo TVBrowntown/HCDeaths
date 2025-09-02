@@ -651,7 +651,7 @@ function HCDeath:toastLVL(playerName, playerLevel)
     local _, _, _, _, _, _, _, _, _, showIcon = GetAchievementInfo(iconDisplay)
 
     HCDeath.type:SetTexture(showIcon)
-    HCDeath.name:SetText(playerName.."")
+    HCDeath.name:SetText(playerName)
     HCDeath.zone:SetText("has reached level "..playerLevel.." in Hardcore mode!")
     HCDeath.death:SetText("Their ascendance towards immortality continues.")
     HCDeath.lastwords:SetText("")
@@ -672,7 +672,7 @@ function HCDeath:toastMAX_LEVEL(playerName)
     local _, _, _, _, _, _, _, _, _, showIcon = GetAchievementInfo(iconDisplay)
 
     HCDeath.type:SetTexture(showIcon)
-    HCDeath.name:SetText(playerName.."")
+    HCDeath.name:SetText(playerName)
     HCDeath.zone:SetText("has transcended death and reached level "..MAX_LEVEL.." on Hardcore mode without dying once!")
     HCDeath.death:SetText(playerName.." shall henceforth be known as |cffFF8000the Immortal|r!")
     HCDeath.lastwords:SetText("'"..GetRandomCelebrationQuote().."'")
@@ -810,10 +810,12 @@ HCDeath:SetScript("OnEvent", function()
         end
 
         if reportType == "LEVEL_UP" then
+            playerName, playerLevel = string.match(arg1, MILESTONE_STRING)
             HCDeath:toastLVL(playerName, playerLevel)
             toastTimer.time = GetTime() + HCDeaths_Settings.toasttime
             toastTimer:Show()
         elseif reportType == "MAX_LEVEL" then
+            playerName, playerLevel = string.match(arg1, MAX_MILESTONE_STRING)
             HCDeath:toastMAX_LEVEL(playerName)
             toastTimer.time = GetTime() + HCDeaths_Settings.toasttime
             toastTimer:Show()
